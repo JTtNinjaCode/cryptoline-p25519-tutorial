@@ -1,0 +1,4 @@
+# compiled binaries
+test/top
+test/trace_bin
+*.o
