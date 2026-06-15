@@ -10,20 +10,33 @@
 2. reduction:利用 `2^256 ≡ 38 (mod p)`,把高 256 bits 乘 38 加到低 256 bits
 3. 微調:r11 的 bit 255 跟 rcx 視為高於 2^255 的部分,利用 `2^255 ≡ 19 (mod p)` 折回低位
 
-## 簡化步驟
+## `gfp25519mul` 簡化步驟(`cl/mul/`)
 
-先做 cleanup(0–1),之後跑 `cv -p` / `cv` 看錯誤訊息,**iteratively** 修。
+每個編號對應 `cl/mul/NN_gf_p25519_mul.cl`。最終驗證:`cv -v cl/mul/08_gf_p25519_mul.cl`。
 
-0. `00_gf_p25519_mul.cl` — `to_zdsl.py` 原始草稿
-1. cleanup:proc 多餘參數、prologue、epilogue
-2. 修 `and r11 r11 0x402008` → 直接用常數值 `0x7fffffffffffffff`(0x402008 是 mask63 的 **address**,不是值)
-3. `cv -p` 在 `shld` 卡住, 需要手寫 → 拆 `split r11_top r11_mid r11 63; shls bit_lost rcx_dbl rcx 1; adds add_co rcx rcx_dbl r11_top;`
-4. `cv -p` 在 `imul` 卡住, 需要手寫 改 `mull dontcare_hi rcx 0x13@uint64 rcx;`
-5. `cv -p` 可以通過, 寫 postcondition `{ eqmod (limbs z) (x*y) ((2**255)-19) && limbs z < (2**255+2**64)@256 }`
-6. `cv` → algebraic spec FAIL,**schoolbook 部分** 4 row 每個 `adcs ... 0x0@uint64 carry;` 後面加 `assert true && carry = 0@uint1; assume carry = 0 && true;`(7 處:Row 0 + Row 1/2/3 各 partial 與 shifted-add)
-7. `cv` 仍 FAIL → **reduction + fix-up** 加 6 個 assert+assume:38-fold 結尾 carry、add-chain 結尾 carry、final 4-limb chain 結尾 carry + shld 拆寫的 `bit_lost` 與 `add_co` + imul 換的 `dontcare_hi`
-8. `cv` 仍 FAIL → reduction 前加 8-limb `assert + assume`(`limbs 64 [r8..rsi] = (limbs x) * (limbs y)`)讓 Singular 有 checkpoint;同時把 step 2 的 `and r11 r11 0x7fff...` 換成 `mov r11 r11_mid;`(用 step 3 split 結果)— `and` 是 bitwise,Singular 需 per-bit polynomial 推理,長鏈下會卡;`mov` 直接借代數等式 `r11 = r11_top × 2^63 + r11_mid`,polynomial 乾淨
-9. `cv` → [OK]
+0. `to_zdsl.py` 原始草稿
+1. cleanup:刪 proc 多餘參數、prologue、epilogue
+2. 修 `and r11 r11 0x402008` → 常數值 `0x7fffffffffffffff`(0x402008 是 mask63 的 address)
+3. 拆 `shld $0x1, %r11, %rcx` → `split r11_top r11_mid r11 63; shls bit_lost rcx_dbl rcx 1; adds add_co rcx rcx_dbl r11_top;`
+4. 改 `imul $0x13, %rcx, %rcx` → `mull dontcare_hi rcx 0x13@uint64 rcx;`
+5. 寫 postcondition `{ eqmod (limbs z) (x*y) ((2**255)-19) && limbs z < (2**255+2**64)@256 }`
+6. schoolbook 4 row 每個 carry chain 結尾加 `assert + assume carry = 0`(7 處)
+7. reduction + fix-up 加 6 個 `assert + assume`:38-fold carry、add-chain carry、final carry、`bit_lost`、`add_co`、`dontcare_hi`
+8. reduction 前加 8-limb `assert + assume`(`limbs 64 [r8..rsi] = X*Y`)當 Singular checkpoint;`and r11 r11 0x7fff...` 換成 `mov r11 r11_mid`(借 step 3 split 結果,避開 bitwise)
+
+## `gfp25519reduce` 簡化步驟(`cl/reduce/`)
+
+precondition 用 mul 輸出 bound `< 2^255 + 2^64`,postcondition `eqmod (out) (in) p && out < 2^255`。
+reduce 只讀 z[0]/z[1]/z[3](跳過 z[2]),carry 只傳到 z[1]。precondition 保證 bit 255 = 1 時 z[1] = z[2] = 0,carry 不會傳到 z[2] → 跳過 z[2] 安全。
+
+每個編號對應 `cl/reduce/NN_gf_p25519_reduce.cl`。最終驗證:`cv -v cl/reduce/05_gf_p25519_reduce.cl`。
+
+0. `to_zdsl.py` 原始草稿
+1. cleanup:label、SP markers、`#ret`(reduce 無 prologue/epilogue)
+2. `imul $0x13, %r11, %r11` → `mull dontcare_hi r11 0x13@uint64 r11;`;`and r10 r10 0x402008` → 常數值 `0x7fffffffffffffff`
+3. 加 precondition `limbs < 2^255 + 2^64`、snapshot 4 limbs `z_in_*`、postcondition `eqmod && < 2^255`(reduce in-place 寫 z[0]/z[1]/z[3],snapshot 必要)
+4. 加 `assert + assume`:`dontcare_hi = 0`、carry chain 末 `carry = 0`
+5. `and r10 r10 0x7fff...` 換成 `mov r10 dc`(借 step 2 already-existing 的 `split r11 dc r11 0x3f` 輸出,避開 bitwise)
 
 ## 真實 tight bound:`< 2^255 + 2^11`
 
