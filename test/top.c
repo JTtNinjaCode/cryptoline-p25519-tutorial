@@ -29,7 +29,7 @@ static void run_test(const char *label, const fe64 x, const fe64 y) {
 }
 
 int main(void) {
-    /* normal case: random-ish inputs, asm output happens to be canonical */
+    /* test 1: mul output in [0, p) - already canonical, reduce is a no-op */
     fe64 x1 = {
         0xdeadbeefcafebabeULL,
         0x1234567890abcdefULL,
@@ -44,8 +44,9 @@ int main(void) {
     };
     run_test("normal", x1, y1);
 
-    /* test 2: mul output in [2^255, 2p), reduce fixes it
-       x = y = 2^256 - 1, canonical answer = 1369 = 0x559 */
+    /* test 2: mul output in [2^255, 2^255 + 2^11) - reduce folds -p, output < 2^255
+       x = y = 2^256 - 1, x*y = 37^2 = 1369 = 0x559 (mod p)
+       mul output = 2^255 + 1350 (bit 255 = 1), reduce -> 0x559 (canonical) */
     fe64 x2 = {
         0xffffffffffffffffULL,
         0xffffffffffffffffULL,
@@ -60,8 +61,9 @@ int main(void) {
     };
     run_test("non-canonical, reduce CAN fix (canonical = 0x559)", x2, y2);
 
-    /* test 3: mul output in [p, 2^255), reduce CANNOT fix
-       x = y = p - 1 = 2^255 - 20, canonical answer = 1 */
+    /* test 3: mul output in [p, 2^255) - one of the 19 missed values, reduce CANNOT fix
+       x = y = p - 1, x*y = (-1)^2 = 1 (mod p)
+       mul output = p + 1 = 2^255 - 18 (bit 255 = 0), reduce no-op, output stays p + 1 */
     fe64 x3 = {
         0xffffffffffffffecULL,
         0xffffffffffffffffULL,

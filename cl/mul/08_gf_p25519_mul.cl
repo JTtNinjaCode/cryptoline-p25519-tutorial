@@ -115,11 +115,8 @@ adcs carry r14 r14 r15 carry;
 adcs carry rsi rsi 0x0@uint64 carry;
 assert true && carry = 0@uint1; assume carry = 0 && true;
 
+(* 以上 schoolbook 已經完成驗證, 確認沒有問題, assert 看看*)
 assert limbs 64 [r8, r9, r10, r11, r12, r13, r14, rsi] =
-       (limbs 64 [L0x7fffffffd620, L0x7fffffffd628, L0x7fffffffd630, L0x7fffffffd638]) *
-       (limbs 64 [L0x7fffffffd640, L0x7fffffffd648, L0x7fffffffd650, L0x7fffffffd658])
-       && true;
-assume limbs 64 [r8, r9, r10, r11, r12, r13, r14, rsi] =
        (limbs 64 [L0x7fffffffd620, L0x7fffffffd628, L0x7fffffffd630, L0x7fffffffd638]) *
        (limbs 64 [L0x7fffffffd640, L0x7fffffffd648, L0x7fffffffd650, L0x7fffffffd658])
        && true;
@@ -164,7 +161,8 @@ assert true && bit_lost = 0@uint1; assume bit_lost = 0 && true;
 adds add_co rcx rcx_dbl r11_top;
 assert true && add_co = 0@uint1; assume add_co = 0 && true;
 (* and    0x402008,%r11                            #! PC = 0x4013fd *)
-mov r11 r11_mid;
+and r11@uint64 r11 0x7fffffffffffffff@uint64;
+assert true && r11 = r11_mid; assume r11 = r11_mid && true;
 (* imul   $0x13,%rcx,%rcx                          #! PC = 0x401405 *)
 mull dontcare_hi rcx 0x13@uint64 rcx;
 assert true && dontcare_hi = 0@uint64; assume dontcare_hi = 0 && true;
