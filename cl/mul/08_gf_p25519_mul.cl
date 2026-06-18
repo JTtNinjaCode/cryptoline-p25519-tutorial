@@ -155,14 +155,14 @@ assert true && carry = 0@uint1; assume carry = 0 && true;
 
 (* === reduction step 2: combine top limb with r11 bit 63, multiply by 19 -> < 2^11 === *)
 (* shld   $0x1,%r11,%rcx — spelled out *)
-split r11_top r11_mid r11 63;
+split r11_top r11_low_63 r11 63;
 shls bit_lost rcx_dbl rcx 1;
 assert true && bit_lost = 0@uint1; assume bit_lost = 0 && true;
 adds add_co rcx rcx_dbl r11_top;
 assert true && add_co = 0@uint1; assume add_co = 0 && true;
 (* and    0x402008,%r11                            #! PC = 0x4013fd *)
 and r11@uint64 r11 0x7fffffffffffffff@uint64;
-assert true && r11 = r11_mid; assume r11 = r11_mid && true;
+assert true && r11 = r11_low_63; assume r11 = r11_low_63 && true;
 (* imul   $0x13,%rcx,%rcx                          #! PC = 0x401405 *)
 mull dontcare_hi rcx 0x13@uint64 rcx;
 assert true && dontcare_hi = 0@uint64; assume dontcare_hi = 0 && true;

@@ -145,7 +145,7 @@ adcs carry r11 r11 r15 carry;
 adcs carry rcx rcx 0x0@uint64 carry;
 assert true && carry = 0@uint1; assume carry = 0 && true;
 (* shld   $0x1,%r11,%rcx — spelled out *)
-split r11_top r11_mid r11 63;
+split r11_top r11_low_63 r11 63;
 shls bit_lost rcx_dbl rcx 1;
 assert true && bit_lost = 0@uint1; assume bit_lost = 0 && true;
 adds add_co rcx rcx_dbl r11_top;

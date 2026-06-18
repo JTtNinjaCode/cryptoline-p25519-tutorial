@@ -143,7 +143,7 @@ adcs carry r11 r11 r15 carry;
 (* adc    $0x0,%rcx                                #! PC = 0x4013f4 *)
 adcs carry rcx rcx 0x0@uint64 carry;
 (* shld   $0x1,%r11,%rcx — spelled out *)
-split r11_top r11_mid r11 63;
+split r11_top r11_low_63 r11 63;
 shls bit_lost rcx_dbl rcx 1;
 adds add_co rcx rcx_dbl r11_top;
 (* and    0x402008,%r11                            #! PC = 0x4013fd *)
